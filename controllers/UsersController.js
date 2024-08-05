@@ -1,40 +1,32 @@
-/* eslint-disable import/no-named-as-default */
-import sha1 from 'sha1';
-import Queue from 'bull/lib/queue';
-import dbClient from '../utils/db';
+import Queue from 'bull';
+import UsersCollection from '../utils/users';
 
-const userQueue = new Queue('email sending');
+// User welcome email queue
+const userQueue = Queue('send welcome email');
 
-export default class UsersController {
+class UsersController {
+  /**
+   * Controller for endpoint POST /users for creating new users
+   * @typedef {import("express").Request} Request
+   * @typedef {import("express").Response} Response
+   * @param {Request} req - request object
+   * @param {Response} res - response object
+   */
   static async postNew(req, res) {
-    const email = req.body ? req.body.email : null;
-    const password = req.body ? req.body.password : null;
-
-    if (!email) {
+    const { email, password } = req.body;
+    if (email === undefined) {
       res.status(400).json({ error: 'Missing email' });
-      return;
-    }
-    if (!password) {
+    } else if (password === undefined) {
       res.status(400).json({ error: 'Missing password' });
-      return;
-    }
-    const user = await (await dbClient.usersCollection()).findOne({ email });
-
-    if (user) {
+    } else if (await UsersCollection.getUser({ email })) {
       res.status(400).json({ error: 'Already exist' });
-      return;
+    } else {
+      // Create new user
+      const userId = await UsersCollection.createUser(email, password);
+      userQueue.add({ userId });
+      res.status(201).json({ id: userId, email });
     }
-    const insertionInfo = await (await dbClient.usersCollection())
-      .insertOne({ email, password: sha1(password) });
-    const userId = insertionInfo.insertedId.toString();
-
-    userQueue.add({ userId });
-    res.status(201).json({ email, id: userId });
-  }
-
-  static async getMe(req, res) {
-    const { user } = req;
-
-    res.status(200).json({ email: user.email, id: user._id.toString() });
   }
 }
+
+export default UsersController;
