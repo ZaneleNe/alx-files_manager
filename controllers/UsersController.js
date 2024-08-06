@@ -1,6 +1,6 @@
 import sha1 from 'sha1';
 import Queue from 'bull/lib/queue';
-import dbClient from '../utils/db'; // Ensure this path is correct
+import dbClient from '../utils/db';
 
 const userQueue = new Queue('email sending');
 
@@ -9,27 +9,34 @@ export default class UsersController {
     const email = req.body ? req.body.email : null;
     const password = req.body ? req.body.password : null;
 
+    // Check for missing email
     if (!email) {
-      res.status(400).json({ error: 'Missing email' });
-      return;
+      return res.status(400).json({ error: 'Missing email' });
     }
+
+    // Check for missing password
     if (!password) {
-      res.status(400).json({ error: 'Missing password' });
-      return;
+      return res.status(400).json({ error: 'Missing password' });
     }
 
     try {
-      const user = await dbClient.usersCollection.findOne({ email });
-
-      if (user) {
-        res.status(400).json({ error: 'Already exist' });
-        return;
+      // Check if user already exists
+      const existingUser = await dbClient.usersCollection.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ error: 'Already exist' });
       }
 
-      const insertionInfo = await dbClient.usersCollection.insertOne({ email, password: sha1(password) });
-      const userId = insertionInfo.insertedId.toString();
+      // Hash password and create new user
+      const hashedPassword = sha1(password);
+      const result = await dbClient.usersCollection.insertOne({ email, password: hashedPassword });
 
+      // Get the new user's ID
+      const userId = result.insertedId.toString();
+
+      // Optionally add user to queue for processing
       userQueue.add({ userId });
+
+      // Return newly created user
       res.status(201).json({ email, id: userId });
     } catch (error) {
       console.error('Error handling user request:', error);
