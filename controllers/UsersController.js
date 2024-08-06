@@ -14,17 +14,18 @@ class UsersController {
    */
   static async postNew(req, res) {
     const { email, password } = req.body;
+
     if (email === undefined) {
-      res.status(400).json({ error: 'Missing email' });
+      return res.status(400).json({ error: 'Missing email' });
     } else if (password === undefined) {
-      res.status(400).json({ error: 'Missing password' });
+      return res.status(400).json({ error: 'Missing password' });
     } else if (await UsersCollection.getUser({ email })) {
-      res.status(400).json({ error: 'Already exist' });
+      return res.status(400).json({ error: 'Already exists' });
     } else {
       // Create new user
       const userId = await UsersCollection.createUser(email, password);
       userQueue.add({ userId });
-      res.status(201).json({ id: userId, email });
+      return res.status(201).json({ id: userId, email });
     }
   }
 }
