@@ -1,6 +1,6 @@
 import sha1 from 'sha1';
 import Queue from 'bull/lib/queue';
-import { dbClient } from '../utils/db';
+import dbClient from '../utils/db'; // Ensure this path is correct
 
 const userQueue = new Queue('email sending');
 
@@ -17,18 +17,24 @@ export default class UsersController {
       res.status(400).json({ error: 'Missing password' });
       return;
     }
-    const user = await (await dbClient.usersCollection()).findOne({ email });
 
-    if (user) {
-      res.status(400).json({ error: 'Already exist' });
-      return;
+    try {
+      const user = await dbClient.usersCollection.findOne({ email });
+
+      if (user) {
+        res.status(400).json({ error: 'Already exist' });
+        return;
+      }
+
+      const insertionInfo = await dbClient.usersCollection.insertOne({ email, password: sha1(password) });
+      const userId = insertionInfo.insertedId.toString();
+
+      userQueue.add({ userId });
+      res.status(201).json({ email, id: userId });
+    } catch (error) {
+      console.error('Error handling user request:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
-    const insertionInfo = await (await dbClient.usersCollection())
-      .insertOne({ email, password: sha1(password) });
-    const userId = insertionInfo.insertedId.toString();
-
-    userQueue.add({ userId });
-    res.status(201).json({ email, id: userId });
   }
 
   static async getMe(req, res) {
