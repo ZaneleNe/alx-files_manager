@@ -11,6 +11,7 @@ class DBClient {
     this.db = null;
     this.usersCollection = null;
     this.filesCollection = null;
+    this.connect(); // Initialize connection upon instantiation
   }
 
   async connect() {
