@@ -6,6 +6,9 @@ import injectMiddlewares from './lib/middlewares';
 
 const server = express();
 
+// Middleware to parse JSON bodies
+server.use(express.json());
+
 async function initializeServer() {
   try {
     // Connect to the database
